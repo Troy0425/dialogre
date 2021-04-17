@@ -592,6 +592,7 @@ def f1_eval(logits, features):
         if len(label) == 0:
             label = [36]
         labels += [label]
+    
     assert(len(labels) == len(logits))
     
     bestT2 = bestf_1 = 0

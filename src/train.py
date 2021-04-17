@@ -20,7 +20,7 @@ tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
 
-    def __init__(self, guid, text_a, text_b=None, label=None, text_c=None):
+    def __init__(self, guid, text_a, text_b=None, label=None, text_c=None, trigger=None):
         """Constructs a InputExample.
 
         Args:
@@ -37,6 +37,7 @@ class InputExample(object):
         self.text_b = text_b
         self.text_c = text_c
         self.label = label
+        self.trigger = trigger
 
 class DataProcessor(object):
     """Base class for data converters for sequence classification data sets."""
@@ -75,15 +76,20 @@ class bertProcessor(DataProcessor): #bert
             for i in range(len(data)):
                 for j in range(len(data[i][1])):
                     rid = []
+                    trigger = []
                     for k in range(36):
                         if k+1 in data[i][1][j]["rid"]:
                             rid += [1]
                         else:
                             rid += [0]
+                    for t in data[i][1][j]["t"]:
+                        trigger += [t.lower()]
+                    
                     d = ['\n'.join(data[i][0]).lower(),
                          data[i][1][j]["x"].lower(),
                          data[i][1][j]["y"].lower(),
-                         rid]
+                         rid,
+                         trigger]
                     self.D[sid] += [d]
         logger.info(str(len(self.D[0])) + "," + str(len(self.D[1])) + "," + str(len(self.D[2])))
         
@@ -114,7 +120,7 @@ class bertProcessor(DataProcessor): #bert
             text_a = data[i][0]
             text_b = data[i][1]
             text_c = data[i][2]
-            examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=data[i][3], text_c=text_c))
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=data[i][3], text_c=text_c, trigger=data[i][4]))
             
         return examples
 
@@ -274,19 +280,21 @@ def main():
         result["f1"] = eval_f1
         result["T2"] = eval_T2
 
-        logger.info("***** Eval results *****")
+        logger.info("***** Epoch {} Eval results *****".format(i + 1))
         for key in sorted(result.keys()):
             logger.info("  %s = %s", key, str(result[key]))
-
+        logger.info("  %s = %s", 'best_f1', str(best_metric))
         
         if eval_f1 >= best_metric:
             torch.save(model.state_dict(), os.path.join(output_dir, "model_best.pt"))
             best_metric = eval_f1
-        else:
-            if eval_accuracy >= best_metric:
-                torch.save(model.state_dict(), os.path.join(output_dir, "model_best.pt"))
-                best_metric = eval_accuracy
+        # else:
+        #     if eval_accuracy >= best_metric:
+        #         torch.save(model.state_dict(), os.path.join(output_dir, "model_best.pt"))
+        #         best_metric = eval_accuracy
 
+    logger.info("***** Results *****")
+    logger.info("  %s = %s", 'best_f1', str(best_metric))
     model.load_state_dict(torch.load(os.path.join(output_dir, "model_best.pt")))
     torch.save(model.state_dict(), os.path.join(output_dir, "model.pt"))
 
